@@ -92,7 +92,12 @@ func MyTreeDiff() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(p)
+	//fmt.Println(p)
+	//fmt.Println(p.Message())
+	//fmt.Println(p.Stats())
+	//fmt.Println(p.FilePatches()[0])
+	str := p.String()
+	fmt.Println(str)
 }
 
 
