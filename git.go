@@ -1,4 +1,4 @@
-package git
+package nexigit
 
 import (
 	"fmt"
@@ -41,6 +41,23 @@ func diffTreeIsEquals(a, b noder.Hasher) bool {
 	}
 
 	return bytes.Equal(hashA, hashB)
+}
+
+
+func CheckIdx() {
+	s := filesystem.NewStorage(osfs.New("nexivil8/hosuk8"), cache.NewObjectLRUDefault())
+
+	repo, err := git.Open(s, osfs.New("nexivil8/hosuk8"))
+	if err != nil {
+		panic(err)
+	}
+
+	idx, err := repo.Storer.Index()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(idx)
 }
 
 
@@ -88,6 +105,28 @@ func MyTreeDiff(th1 string , th2 string) {
 	//fmt.Println(p.FilePatches()[0])
 	str := p.String()
 	fmt.Println(str)
+}
+
+
+
+func RenderBlob(hash string) {
+	s := filesystem.NewStorage(osfs.New("nexivil8/hosuk8"), cache.NewObjectLRUDefault())
+
+	h := plumbing.NewHash(hash)
+
+	
+
+	// tree hash
+	b, err := object.GetBlob(s, h)
+	if err != nil {
+		panic(err)
+	}
+
+	reader , err := b.Reader()
+
+	barr , err := ioutil.ReadAll(reader)
+
+	fmt.Println(string(barr))
 }
 
 
@@ -175,15 +214,19 @@ func GetLog(skip int, limit int) {
 		panic(err)
 	}
 	// ... retrieves the commit history
-	cIter, err := repo.Log(&git.LogOptions{All: false})
+	cIter, err := repo.Log(&git.LogOptions{Order: git.LogOrderDefault})
 	if err != nil {
 		panic(err)
 	}
 
+
+	// commit 을 스트링으로 바꾸고 배열에 넣어줘서 반환할까 ??? 
 	//fmt.Println(cIter)
 	// 여기서 어떤 조작으로 로그 문제 해결 .... 
 	// ... just iterates over the commits, printing it
+	carr := make([]string, 0)
 	count := 0
+	//fmt.Println(cIter.)
 	err = cIter.ForEach(func(c *object.Commit) error {
 
 		if count > skip+limit {
@@ -197,7 +240,7 @@ func GetLog(skip int, limit int) {
 			line := strings.Split(c.Message, "\n")
 			fmt.Println(hash[:7], line[0])
 			fmt.Println(c)
-
+			carr = append(carr , c.String())
 		}
 
 		count++
@@ -209,6 +252,8 @@ func GetLog(skip int, limit int) {
 	if err != nil {
 		panic(err)
 	}
+
+	//fmt.Println(carr)
 }
 
 
