@@ -22,11 +22,12 @@ import (
 	"gopkg.in/src-d/go-git.v4/plumbing/cache"
 	"gopkg.in/src-d/go-git.v4/storage/filesystem"
 
-	"gopkg.in/src-d/go-git.v4/utils/merkletrie"
-	mindex "gopkg.in/src-d/go-git.v4/utils/merkletrie/index"
+
 	"gopkg.in/src-d/go-git.v4/utils/merkletrie/noder"
 
 	//"gopkg.in/src-d/go-git.v4/config"
+
+	"gopkg.in/src-d/go-git.v4/plumbing/storer"
 )
 
 var emptyNoderHash = make([]byte, 24)
@@ -43,33 +44,22 @@ func diffTreeIsEquals(a, b noder.Hasher) bool {
 }
 
 
-func MyTreeDiff() {
+func MyTreeDiff(th1 string , th2 string) {
+	
 	s := filesystem.NewStorage(osfs.New("nexivil8/hosuk8"), cache.NewObjectLRUDefault())
 
-	repo, err := git.Open(s, osfs.New("nexivil8/hosuk8"))
-	if err != nil {
-		panic(err)
-	}
+	h1 := plumbing.NewHash(th1)
 
-	ref, err := repo.Head()
-	if err != nil {
-		panic(err)
-	}
+	
 
-	h := ref.Hash()
-
-	c, err := repo.CommitObject(h)
-	if err != nil {
-		panic(err)
-	}
-
-	t, err := c.Tree()
+	// tree hash
+	t1, err := object.GetTree(s, h1)
 	if err != nil {
 		panic(err)
 	}
 
 
-	h2 := plumbing.NewHash("da0f37d80c1b82752ef77e4e80ba84a3011881e3")
+	h2 := plumbing.NewHash(th2)
 
 	
 
@@ -81,7 +71,7 @@ func MyTreeDiff() {
 
 	/////////////////
 
-	changes , err := t.Diff(t2)
+	changes , err := t1.Diff(t2)
 	if err != nil {
 		panic(err)
 	}
@@ -101,7 +91,7 @@ func MyTreeDiff() {
 }
 
 
-func MyCheckOut() {
+func MyCheckOut( branch string , isCreate bool) {
 
 	s := filesystem.NewStorage(osfs.New("nexivil8/hosuk8"), cache.NewObjectLRUDefault())
 
@@ -115,16 +105,12 @@ func MyCheckOut() {
 		panic(err)
 	}
 
-		// 브랜치 생성시 .... 
-	// err := w.Checkout(&CheckoutOptions{
-	// 	Create: true,
-	// 	Branch: "refs/heads/foo",
-	// })
-
+	//var branchName plumbing.ReferenceName  = "refs/heads/"
+	branchName := plumbing.ReferenceName(branch)
 
 	err = w.Checkout(&git.CheckoutOptions{
-		
-		Branch: "refs/heads/master",
+		Create: isCreate,
+		Branch: branchName,
 	})
 	if err != nil {
 		// unstaged change 오류 .... 
@@ -146,79 +132,13 @@ func MyCheckOut() {
 		panic(err)
 	}
 	fmt.Println(c)
-	// status, err := w.Status()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	//fmt.Println(status)
-}
-
-func MyCreateBranch() {
-
-	s := filesystem.NewStorage(osfs.New("nexivil8/hosuk8"), cache.NewObjectLRUDefault())
-
-	repo, err := git.Open(s, osfs.New("nexivil8/hosuk8"))
-	if err != nil {
-		panic(err)
-	}
-
-	w, err := repo.Worktree()
-	if err != nil {
-		panic(err)
-	}
-
-	err = w.Checkout(&git.CheckoutOptions{
-		Create: true,
-		Branch: "refs/heads/test2",
-	})
-	if err != nil {
-		// unstaged change 오류 .... 
-		//panic(err)
-	}
-
-	head, err := repo.Head()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(head)
-
-	status, err := w.Status()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(status)
-
-
-	// headRef, err := repo.Head()
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-
-	// ref := plumbing.NewHashReference("refs/heads/my-branch", headRef.Hash())
-
-
-	// err = repo.Storer.SetReference(ref)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-
-	// testBranch := &config.Branch{
-	// 	Name:   "test3",
-	// 	Remote: "origin",
-	// 	Merge:  "refs/heads/test3",
-	// }
-
-	// err =  repo.CreateBranch(testBranch)
-	// if err != nil {
-	// 	panic(err)
-	// }
 	
 }
 
 
-func GetBranches() {
+
+
+func GetBranches() []string {
 	s := filesystem.NewStorage(osfs.New("nexivil8/hosuk8"), cache.NewObjectLRUDefault())
 
 	repo, err := git.Open(s, osfs.New("nexivil8/hosuk8"))
@@ -226,7 +146,7 @@ func GetBranches() {
 		panic(err)
 	}
 
-
+	var branchArr []string
 
 	branches, err := repo.Branches()
 	if err != nil {
@@ -236,17 +156,18 @@ func GetBranches() {
 
 	branches.ForEach( func(branch *plumbing.Reference) error {
 		fmt.Println(branch.Name())
+		branchArr = append(branchArr, string(branch.Name()))
 		return nil
 	})
 
+
+	return branchArr
 	
 }
 
 
 
-func GetLog() {
-	//var ss string = "newtimetestzz"
-
+func GetLog(skip int, limit int) {
 	s := filesystem.NewStorage(osfs.New("nexivil8/hosuk8"), cache.NewObjectLRUDefault())
 
 	repo, err := git.Open(s, osfs.New("nexivil8/hosuk8"))
@@ -254,150 +175,51 @@ func GetLog() {
 		panic(err)
 	}
 	// ... retrieves the commit history
-	cIter, err := repo.Log(&git.LogOptions{All: true})
+	cIter, err := repo.Log(&git.LogOptions{All: false})
 	if err != nil {
 		panic(err)
 	}
 
 	//fmt.Println(cIter)
-
+	// 여기서 어떤 조작으로 로그 문제 해결 .... 
 	// ... just iterates over the commits, printing it
+	count := 0
 	err = cIter.ForEach(func(c *object.Commit) error {
-		hash := c.Hash.String()
-		line := strings.Split(c.Message, "\n")
-		fmt.Println(hash[:7], line[0])
 
+		if count > skip+limit {
+			fmt.Println("break it")
+			return storer.ErrStop 
+		}
+
+		if count > skip {
+
+			hash := c.Hash.String()
+			line := strings.Split(c.Message, "\n")
+			fmt.Println(hash[:7], line[0])
+			fmt.Println(c)
+
+		}
+
+		count++
 		return nil
 	})
+
+
+
 	if err != nil {
 		panic(err)
 	}
 }
 
-func GetIndex() {
-	s := filesystem.NewStorage(osfs.New("nexivil8/hosuk8"), cache.NewObjectLRUDefault())
 
-	repo, err := git.Open(s, osfs.New("nexivil8/hosuk8"))
-	if err != nil {
-		panic(err)
-	}
+func GetCommitTree(hash string) {
 
-	ref, err := repo.Head()
-	if err != nil {
-		panic(err)
-	}
-
-	h := ref.Hash()
-
-	c, err := repo.CommitObject(h)
-	if err != nil {
-		panic(err)
-	}
-
-	t, err := c.Tree()
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(t)
-
-	idx, err := repo.Storer.Index()
-	if err != nil {
-		panic(err)
-	}
-
-	str := idx.String()
-
-	fmt.Println(str)
-
-	//fmt.Println(idx.Entries[0])
 }
 
-// get repo 나 tree render 함수 안에 넣어주는 걸로 ...
-func Getindexoftree(hash string) (*index.Index, error) {
 
-	s := filesystem.NewStorage(osfs.New("nexivil8/hosuk8"), cache.NewObjectLRUDefault())
 
-	repo, err := git.Open(s, osfs.New("nexivil8/hosuk8"))
-	if err != nil {
-		panic(err)
-	}
 
-	//h := plumbing.NewHash(hash)
-	//h := plumbing.NewHash("9b1c8984d0a2b29d572c2361e49bb67eb822adb4")
-	//h := plumbing.NewHash("ea022c9efa36d55b4b25274901a025de42cf2f6b")
-	h := plumbing.NewHash("6860b03d0fc6250f51330e03bd17a238802ae8c8")
-
-	idx, err := repo.Storer.Index()
-	if err != nil {
-		panic(err)
-	}
-
-	// tree hash
-	t, err := object.GetTree(s, h)
-	if err != nil {
-		panic(err)
-	}
-
-	var from noder.Noder
-	if t != nil {
-		from = object.NewTreeRootNode(t)
-	}
-
-	to := mindex.NewRootNode(idx)
-
-	// if reverse {
-	// 	return merkletrie.DiffTree(to, from, diffTreeIsEquals)
-	// }
-	// // reverse 없는 관계로 이게 맞음 ....
-	// return merkletrie.DiffTree(to, from, diffTreeIsEquals)
-
-	//merkletrie.Changes, error
-	//return merkletrie.DiffTree(from, to, diffTreeIsEquals)
-
-	changes, err := merkletrie.DiffTree(to, from, diffTreeIsEquals)
-	if err != nil {
-		panic(err)
-	}
-
-	for _, ch := range changes {
-		a, err := ch.Action()
-		if err != nil {
-			panic(err)
-		}
-
-		var name string
-		var e *object.TreeEntry
-
-		switch a {
-		case merkletrie.Modify, merkletrie.Insert:
-			name = ch.To.String()
-			e, err = t.FindEntry(name)
-			if err != nil {
-				panic(err)
-			}
-		case merkletrie.Delete:
-			name = ch.From.String()
-		}
-
-		_, _ = idx.Remove(name)
-		if e == nil {
-			continue
-		}
-
-		idx.Entries = append(idx.Entries, &index.Entry{
-			Name: name,
-			Hash: e.Hash,
-			Mode: e.Mode,
-		})
-
-	}
-
-	fmt.Println(idx)
-	return idx, nil
-}
-
-func GetRepoTree() (*index.Index, []object.TreeEntry, error) {
+func GetRepoTree() ( []object.TreeEntry, error) {
 	fmt.Printf("GetHeadTree")
 
 	s := filesystem.NewStorage(osfs.New("nexivil8/hosuk8"), cache.NewObjectLRUDefault())
@@ -424,16 +246,13 @@ func GetRepoTree() (*index.Index, []object.TreeEntry, error) {
 		panic(err)
 	}
 
-	idx, err := Getindexoftree(t.ID().String())
-	if err != nil {
-		panic(err)
-	}
+	
 
 	fmt.Println(t)
-	return idx, t.Entries, nil
+	return t.Entries, nil
 }
 
-func RenderTree(hash string) (*index.Index, []object.TreeEntry, error) {
+func RenderTree(hash string) ([]object.TreeEntry, error) {
 	// 트리를 인자로 받고 트리를 렌더링 한다 .... 그안에 깊숙한 폴더를 들어갈때도 다시 이함수를 호출해준다.
 	fmt.Printf("RenderTree")
 
@@ -446,13 +265,10 @@ func RenderTree(hash string) (*index.Index, []object.TreeEntry, error) {
 		panic(err)
 	}
 
-	idx, err := Getindexoftree(t.ID().String())
-	if err != nil {
-		panic(err)
-	}
+	
 
 	fmt.Println(t.Entries)
-	return idx, t.Entries, err
+	return  t.Entries, err
 }
 
 func CreateAndInitDirectory(path string) {
